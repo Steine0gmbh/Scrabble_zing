@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>graphify - graphify-out/graph.html</title>
+<script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"
+        integrity="sha384-Ux6phic9PEHJ38YtrijhkzyJ8yQlH8i/+buBR8s3mAZOJrP1gwyvAcIYl3GWtpX1"
+        crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg: #0f0f1a; --panel: #1a1a2e; --border: #2a2a4e; --input-border: #3a3a5e;
+    --text: #e0e0e0; --text-2: #aaa; --text-3: #ccc; --muted: #555; --count: #666;
+    --neighbor-border: #333; --node-label: #ffffff;
+  }
+  [data-theme="light"] {
+    --bg: #ffffff; --panel: #f8f9fa; --border: #d9dee5; --input-border: #c3cad4;
+    --text: #222222; --text-2: #666666; --text-3: #333333; --muted: #888888; --count: #777777;
+    --neighbor-border: #ccc; --node-label: #222222;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  #graph { flex: 1; }
+  #sidebar { width: 280px; background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  #search-wrap { padding: 12px; border-bottom: 1px solid var(--border); }
+  #search { width: 100%; background: var(--bg); border: 1px solid var(--input-border); color: var(--text); padding: 7px 10px; border-radius: 6px; font-size: 13px; outline: none; }
+  #search:focus { border-color: #4E79A7; }
+  #search-results { max-height: 140px; overflow-y: auto; padding: 4px 12px; border-bottom: 1px solid var(--border); display: none; }
+  .search-item { padding: 4px 6px; cursor: pointer; border-radius: 4px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .search-item:hover { background: var(--border); }
+  #info-panel { padding: 14px; border-bottom: 1px solid var(--border); min-height: 140px; }
+  #info-panel h3 { font-size: 13px; color: var(--text-2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  #info-content { font-size: 13px; color: var(--text-3); line-height: 1.6; }
+  #info-content .field { margin-bottom: 5px; }
+  #info-content .field b { color: var(--text); }
+  #info-content .empty { color: var(--muted); font-style: italic; }
+  .neighbor-link { display: block; padding: 2px 6px; margin: 2px 0; border-radius: 3px; cursor: pointer; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 3px solid var(--neighbor-border); }
+  .neighbor-link:hover { background: var(--border); }
+  #neighbors-list { max-height: 160px; overflow-y: auto; margin-top: 4px; }
+  #legend-wrap { flex: 1; overflow-y: auto; padding: 12px; }
+  #legend-wrap h3 { font-size: 13px; color: var(--text-2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; border-radius: 4px; font-size: 12px; }
+  .legend-item:hover { background: var(--border); padding-left: 4px; }
+  .legend-item.dimmed { opacity: 0.35; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .legend-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .legend-count { color: var(--count); font-size: 11px; }
+  #stats { padding: 10px 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  #legend-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 4px 0; }
+  #legend-controls label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: var(--text-2); user-select: none; }
+  #legend-controls label:hover { color: var(--text); }
+  .legend-cb, #select-all-cb { appearance: none; -webkit-appearance: none; width: 14px; height: 14px; border: 1.5px solid var(--input-border); border-radius: 3px; background: var(--bg); cursor: pointer; position: relative; flex-shrink: 0; }
+  .legend-cb:checked, #select-all-cb:checked { background: #4E79A7; border-color: #4E79A7; }
+  .legend-cb:checked::after, #select-all-cb:checked::after { content: ''; position: absolute; left: 3.5px; top: 1px; width: 4px; height: 7px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  #select-all-cb:indeterminate { background: #4E79A7; border-color: #4E79A7; }
+  #select-all-cb:indeterminate::after { content: ''; position: absolute; left: 2px; top: 5px; width: 8px; height: 2px; background: #fff; border: none; transform: none; }
+  #theme-wrap { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  #theme-wrap button { flex: 1; background: var(--bg); color: var(--text-2); border: 1px solid var(--input-border); border-radius: 4px; padding: 3px 0; font-size: 11px; cursor: pointer; }
+  #theme-wrap button:hover { color: var(--text); }
+  #theme-wrap button[aria-pressed="true"] { background: #4E79A7; border-color: #4E79A7; color: #fff; }
+</style>
+<script id="graphify-theme-init">
+// Apply the saved theme before first paint (#3894). No saved choice keeps the
+// historical dark look; "system" follows prefers-color-scheme.
+(function () {
+  var pref = null;
+  try { pref = localStorage.getItem('graphify-theme'); } catch (e) {}
+  var t = pref === 'light' ? 'light'
+    : pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light'
+    : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+</head>
+<body>
+<div id="graph"></div>
+<div id="sidebar">
+  <div id="theme-wrap" role="group" aria-label="Theme">
+    <button type="button" data-theme-choice="light">Light</button>
+    <button type="button" data-theme-choice="dark">Dark</button>
+    <button type="button" data-theme-choice="system">System</button>
+  </div>
+  <div id="search-wrap">
+    <input id="search" type="text" placeholder="Search nodes..." autocomplete="off">
+    <div id="search-results"></div>
+  </div>
+  <div id="info-panel">
+    <h3>Node Info</h3>
+    <div id="info-content"><span class="empty">Click a node to inspect it</span></div>
+  </div>
+  <div id="legend-wrap">
+    <h3>Communities</h3>
+    <div id="legend-controls">
+      <label><input type="checkbox" id="select-all-cb" checked onchange="toggleAllCommunities(!this.checked)">Select All</label>
+    </div>
+    <div id="legend"></div>
+  </div>
+  <div id="stats">68 nodes &middot; 84 edges &middot; 8 communities</div>
+</div>
+<script>
+const RAW_NODES = [{"id": "launcher_program", "label": "Program", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "Program", "community": 2, "community_name": "EXE-Starter (C#)", "source_file": "launcher.cs", "file_type": "code", "degree": 3}, {"id": "build_add", "label": "add()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "add()", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "build.py", "file_type": "code", "degree": 2}, {"id": "build_make_icon", "label": "make_icon()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 25.0, "font": {"size": 12, "color": "#ffffff"}, "title": "make_icon()", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "build.py", "file_type": "code", "degree": 5}, {"id": "build_make_tile_icon", "label": "make_tile_icon()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 22.0, "font": {"size": 12, "color": "#ffffff"}, "title": "make_tile_icon()", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "build.py", "file_type": "code", "degree": 4}, {"id": "build_render_bag_png", "label": "render_bag_png()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "render_bag_png()", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "build.py", "file_type": "code", "degree": 3}, {"id": "build_save_ico", "label": "save_ico()", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 22.0, "font": {"size": 12, "color": "#ffffff"}, "title": "save_ico()", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "build.py", "file_type": "code", "degree": 4}, {"id": "launcher_program_findedge", "label": ".FindEdge()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": ".FindEdge()", "community": 2, "community_name": "EXE-Starter (C#)", "source_file": "launcher.cs", "file_type": "code", "degree": 2}, {"id": "launcher_program_main", "label": ".Main()", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": ".Main()", "community": 2, "community_name": "EXE-Starter (C#)", "source_file": "launcher.cs", "file_type": "code", "degree": 3}, {"id": "build", "label": "build.py", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 40.0, "font": {"size": 12, "color": "#ffffff"}, "title": "build.py", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "build.py", "file_type": "code", "degree": 10}, {"id": "build_rationale_1", "label": "Baut scrabble_zing.html: bettet die Wortlisten in zing_src.html ein.", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Baut scrabble_zing.html: bettet die Wortlisten in zing_src.html ein.", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "build.py", "file_type": "rationale", "degree": 1}, {"id": "build_rationale_43", "label": "Rendert den Beutel mit Edge (headless) als PNG mit transparentem Hintergrund.", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Rendert den Beutel mit Edge (headless) als PNG mit transparentem Hintergrund.", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "build.py", "file_type": "rationale", "degree": 1}, {"id": "build_rationale_69", "label": "Schreibt das Symbol \u00fcber eine Zwischendatei (die alte .ico kann von Windows\u2026", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Schreibt das Symbol \u00fcber eine Zwischendatei (die alte .ico kann von Windows\u2026", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "build.py", "file_type": "rationale", "degree": 1}, {"id": "build_rationale_77", "label": "Programmsymbol: der Beutel; Ersatz ohne Edge: cremefarbener Spielstein mit Z.", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Programmsymbol: der Beutel; Ersatz ohne Edge: cremefarbener Spielstein mit Z.", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "build.py", "file_type": "rationale", "degree": 1}, {"id": "build_rationale_95", "label": "Ersatz-Symbol: cremefarbener Spielstein mit Z.", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Ersatz-Symbol: cremefarbener Spielstein mit Z.", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "build.py", "file_type": "rationale", "degree": 1}, {"id": "launcher", "label": "launcher.cs", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 28.0, "font": {"size": 12, "color": "#ffffff"}, "title": "launcher.cs", "community": 2, "community_name": "EXE-Starter (C#)", "source_file": "launcher.cs", "file_type": "code", "degree": 6}, {"id": "stathread", "label": "STAThread", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "STAThread", "community": 2, "community_name": "EXE-Starter (C#)", "source_file": "", "file_type": "code", "degree": 1}, {"id": "zing_src", "label": "zing_src.html (Zing Wortspiel single-file game)", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "zing_src.html (Zing Wortspiel single-file game)", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "zing_src.html", "file_type": "code", "degree": 1}, {"id": "zing_src_animatescore", "label": "animateScore", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "animateScore", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "zing_src.html", "file_type": "code", "degree": 2}, {"id": "zing_src_buildbonus", "label": "buildBonus", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "buildBonus", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "zing_src.html", "file_type": "code", "degree": 1}, {"id": "zing_src_burst", "label": "burst (bonus effect)", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "burst (bonus effect)", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "zing_src.html", "file_type": "code", "degree": 2}, {"id": "zing_src_evaluate", "label": "evaluate (move validation and scoring)", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 28.0, "font": {"size": 12, "color": "#ffffff"}, "title": "evaluate (move validation and scoring)", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "zing_src.html", "file_type": "code", "degree": 6}, {"id": "zing_src_extent", "label": "extent", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "extent", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "zing_src.html", "file_type": "code", "degree": 1}, {"id": "zing_src_music", "label": "Background music loop (MELODY/BASS)", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Background music loop (MELODY/BASS)", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "zing_src.html", "file_type": "code", "degree": 1}, {"id": "zing_src_render", "label": "render / tileHTML / buildDom", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "render / tileHTML / buildDom", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "zing_src.html", "file_type": "code", "degree": 3}, {"id": "zing_src_sfx", "label": "SFX sound effects (tone/noise)", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 22.0, "font": {"size": 12, "color": "#ffffff"}, "title": "SFX sound effects (tone/noise)", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "zing_src.html", "file_type": "code", "degree": 4}, {"id": "zing_src_submit", "label": "submit (LEGEN)", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 31.0, "font": {"size": 12, "color": "#ffffff"}, "title": "submit (LEGEN)", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "zing_src.html", "file_type": "code", "degree": 7}, {"id": "claude_prompt_f_r_scrabble_zing_game_mechanics", "label": "Scrabble Zing game mechanics spec (start word, drag/drop, validation)", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "Scrabble Zing game mechanics spec (start word, drag/drop, validation)", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "claude_prompt_f_r_scrabble_zing.txt", "file_type": "concept", "degree": 3}, {"id": "claude_prompt_f_r_scrabble_zing_visual_style", "label": "Retro King.com/Fettspielen visual style and HUD spec", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "Retro King.com/Fettspielen visual style and HUD spec", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "claude_prompt_f_r_scrabble_zing.txt", "file_type": "concept", "degree": 2}, {"id": "claude_prompt_f_r_scrabble_zing_web_audio_sounds", "label": "Web Audio API retro sound effects spec", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "Web Audio API retro sound effects spec", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "claude_prompt_f_r_scrabble_zing.txt", "file_type": "concept", "degree": 2}, {"id": "claude_prompt_f_r_scrabble_zing_zing_bonus", "label": "ZING bonus, tempo multiplier and time bonus", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "ZING bonus, tempo multiplier and time bonus", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "claude_prompt_f_r_scrabble_zing.txt", "file_type": "concept", "degree": 2}, {"id": "claude_prompt_f_r_scrabble_zing", "label": "Claude prompt: Scrabble Zing recreation", "color": {"background": "#F28E2B", "border": "#F28E2B", "highlight": {"background": "#ffffff", "border": "#F28E2B"}}, "size": 28.0, "font": {"size": 12, "color": "#ffffff"}, "title": "Claude prompt: Scrabble Zing recreation", "community": 1, "community_name": "Spielregeln und Wertung", "source_file": "claude_prompt_f_r_scrabble_zing.txt", "file_type": "document", "degree": 6}, {"id": "zing_src_applysettings", "label": "applySettings / initSettings / buildPlayerRows", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "applySettings / initSettings / buildPlayerRows", "community": 3, "community_name": "Spielablauf und Mehrspieler", "source_file": "zing_src.html", "file_type": "code", "degree": 2}, {"id": "zing_src_config", "label": "CONFIG", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "CONFIG", "community": 3, "community_name": "Spielablauf und Mehrspieler", "source_file": "zing_src.html", "file_type": "code", "degree": 1}, {"id": "zing_src_endgame", "label": "endGame", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 22.0, "font": {"size": 12, "color": "#ffffff"}, "title": "endGame", "community": 3, "community_name": "Spielablauf und Mehrspieler", "source_file": "zing_src.html", "file_type": "code", "degree": 4}, {"id": "zing_src_loop", "label": "loop (game loop, timer, clock)", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "loop (game loop, timer, clock)", "community": 3, "community_name": "Spielablauf und Mehrspieler", "source_file": "zing_src.html", "file_type": "code", "degree": 2}, {"id": "zing_src_nextround", "label": "nextRound", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 37.0, "font": {"size": 12, "color": "#ffffff"}, "title": "nextRound", "community": 3, "community_name": "Spielablauf und Mehrspieler", "source_file": "zing_src.html", "file_type": "code", "degree": 9}, {"id": "zing_src_passturn", "label": "passTurn", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "passTurn", "community": 3, "community_name": "Spielablauf und Mehrspieler", "source_file": "zing_src.html", "file_type": "code", "degree": 1}, {"id": "zing_src_playertimeout", "label": "playerTimeout", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "playerTimeout", "community": 3, "community_name": "Spielablauf und Mehrspieler", "source_file": "zing_src.html", "file_type": "code", "degree": 3}, {"id": "zing_src_renderplayers", "label": "renderPlayers", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "renderPlayers", "community": 3, "community_name": "Spielablauf und Mehrspieler", "source_file": "zing_src.html", "file_type": "code", "degree": 2}, {"id": "zing_src_showstart", "label": "showStart", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "showStart", "community": 3, "community_name": "Spielablauf und Mehrspieler", "source_file": "zing_src.html", "file_type": "code", "degree": 2}, {"id": "zing_src_multiplayer", "label": "Hot-seat multiplayer (1-4 players, own clocks)", "color": {"background": "#76B7B2", "border": "#76B7B2", "highlight": {"background": "#ffffff", "border": "#76B7B2"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Hot-seat multiplayer (1-4 players, own clocks)", "community": 3, "community_name": "Spielablauf und Mehrspieler", "source_file": "zing_src.html", "file_type": "rationale", "degree": 1}, {"id": "zing_src_checkword", "label": "checkWord", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "checkWord", "community": 4, "community_name": "W\u00f6rterbuch und Wortpr\u00fcfung", "source_file": "zing_src.html", "file_type": "code", "degree": 3}, {"id": "zing_src_dict", "label": "DICT / BASE_WORDS dictionary", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "DICT / BASE_WORDS dictionary", "community": 4, "community_name": "W\u00f6rterbuch und Wortpr\u00fcfung", "source_file": "zing_src.html", "file_type": "code", "degree": 3}, {"id": "zing_src_isplausible", "label": "isPlausible (tolerance heuristic)", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "isPlausible (tolerance heuristic)", "community": 4, "community_name": "W\u00f6rterbuch und Wortpr\u00fcfung", "source_file": "zing_src.html", "file_type": "code", "degree": 3}, {"id": "zing_src_normword", "label": "normWord", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "normWord", "community": 4, "community_name": "W\u00f6rterbuch und Wortpr\u00fcfung", "source_file": "zing_src.html", "file_type": "code", "degree": 1}, {"id": "zing_src_upload_handler", "label": "Custom word list upload handler", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "Custom word list upload handler", "community": 4, "community_name": "W\u00f6rterbuch und Wortpr\u00fcfung", "source_file": "zing_src.html", "file_type": "code", "degree": 3}, {"id": "claude_prompt_f_r_scrabble_zing_dictionary_tolerance", "label": "Built-in dictionary, upload and tolerance mode spec", "color": {"background": "#59A14F", "border": "#59A14F", "highlight": {"background": "#ffffff", "border": "#59A14F"}}, "size": 22.0, "font": {"size": 12, "color": "#ffffff"}, "title": "Built-in dictionary, upload and tolerance mode spec", "community": 4, "community_name": "W\u00f6rterbuch und Wortpr\u00fcfung", "source_file": "claude_prompt_f_r_scrabble_zing.txt", "file_type": "concept", "degree": 4}, {"id": "zing_src_drawone", "label": "drawOne (vowel/consonant balanced draw)", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "drawOne (vowel/consonant balanced draw)", "community": 5, "community_name": "Beutel und Buchstaben", "source_file": "zing_src.html", "file_type": "code", "degree": 3}, {"id": "zing_src_makebag", "label": "makeBag", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "makeBag", "community": 5, "community_name": "Beutel und Buchstaben", "source_file": "zing_src.html", "file_type": "code", "degree": 2}, {"id": "zing_src_newgame", "label": "newGame", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "newGame", "community": 5, "community_name": "Beutel und Buchstaben", "source_file": "zing_src.html", "file_type": "code", "degree": 2}, {"id": "zing_src_newrack", "label": "newRack", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "newRack", "community": 5, "community_name": "Beutel und Buchstaben", "source_file": "zing_src.html", "file_type": "code", "degree": 2}, {"id": "zing_src_values_distribution", "label": "VALUES and DISTRIBUTION tables", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "VALUES and DISTRIBUTION tables", "community": 5, "community_name": "Beutel und Buchstaben", "source_file": "zing_src.html", "file_type": "code", "degree": 2}, {"id": "claude_prompt_f_r_scrabble_zing_letter_distribution", "label": "German letter values and distribution with jokers", "color": {"background": "#EDC948", "border": "#EDC948", "highlight": {"background": "#ffffff", "border": "#EDC948"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "German letter values and distribution with jokers", "community": 5, "community_name": "Beutel und Buchstaben", "source_file": "claude_prompt_f_r_scrabble_zing.txt", "file_type": "concept", "degree": 3}, {"id": "zing_src_drag_input", "label": "Pointer drag and drop / click input handlers", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Pointer drag and drop / click input handlers", "community": 6, "community_name": "Eingabe und Steuerung", "source_file": "zing_src.html", "file_type": "code", "degree": 1}, {"id": "zing_src_keyboard", "label": "Keyboard input handler", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 19.0, "font": {"size": 12, "color": "#ffffff"}, "title": "Keyboard input handler", "community": 6, "community_name": "Eingabe und Steuerung", "source_file": "zing_src.html", "file_type": "code", "degree": 3}, {"id": "zing_src_toRack", "label": "toRack / detach / placeOnBoard", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "toRack / detach / placeOnBoard", "community": 6, "community_name": "Eingabe und Steuerung", "source_file": "zing_src.html", "file_type": "code", "degree": 2}, {"id": "zing_src_togglepause", "label": "togglePause / updPaused", "color": {"background": "#B07AA1", "border": "#B07AA1", "highlight": {"background": "#ffffff", "border": "#B07AA1"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "togglePause / updPaused", "community": 6, "community_name": "Eingabe und Steuerung", "source_file": "zing_src.html", "file_type": "code", "degree": 1}, {"id": "zing_src_fit", "label": "fit (stage scaling)", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "fit (stage scaling)", "community": 7, "community_name": "B\u00fchne und Skalierung", "source_file": "zing_src.html", "file_type": "code", "degree": 1}, {"id": "zing_src_stage_layout", "label": "Fixed 1360x1080 stage scaled to window (original video layout)", "color": {"background": "#FF9DA7", "border": "#FF9DA7", "highlight": {"background": "#ffffff", "border": "#FF9DA7"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "Fixed 1360x1080 stage scaled to window (original video layout)", "community": 7, "community_name": "B\u00fchne und Skalierung", "source_file": "zing_src.html", "file_type": "rationale", "degree": 1}, {"id": "base64", "label": "base64", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "base64", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "", "file_type": "concept", "degree": 1}, {"id": "pathlib", "label": "pathlib", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "pathlib", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "", "file_type": "concept", "degree": 1}, {"id": "re", "label": "re", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 16.0, "font": {"size": 12, "color": "#ffffff"}, "title": "re", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "", "file_type": "concept", "degree": 2}, {"id": "subprocess", "label": "subprocess", "color": {"background": "#4E79A7", "border": "#4E79A7", "highlight": {"background": "#ffffff", "border": "#4E79A7"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "subprocess", "community": 0, "community_name": "Build-Skript und Programmsymbol", "source_file": "", "file_type": "concept", "degree": 1}, {"id": "system", "label": "system", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "system", "community": 2, "community_name": "EXE-Starter (C#)", "source_file": "", "file_type": "concept", "degree": 1}, {"id": "system_diagnostics", "label": "system_diagnostics", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "system_diagnostics", "community": 2, "community_name": "EXE-Starter (C#)", "source_file": "", "file_type": "concept", "degree": 1}, {"id": "system_io", "label": "system_io", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "system_io", "community": 2, "community_name": "EXE-Starter (C#)", "source_file": "", "file_type": "concept", "degree": 1}, {"id": "system_reflection", "label": "system_reflection", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "system_reflection", "community": 2, "community_name": "EXE-Starter (C#)", "source_file": "", "file_type": "concept", "degree": 1}, {"id": "system_windows_forms", "label": "system_windows_forms", "color": {"background": "#E15759", "border": "#E15759", "highlight": {"background": "#ffffff", "border": "#E15759"}}, "size": 13.0, "font": {"size": 0, "color": "#ffffff"}, "title": "system_windows_forms", "community": 2, "community_name": "EXE-Starter (C#)", "source_file": "", "file_type": "concept", "degree": 1}];
+const RAW_EDGES = [{"from": "launcher", "to": "launcher_program", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "launcher_program", "to": "launcher_program_main", "label": "method", "title": "method [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "launcher_program", "to": "launcher_program_findedge", "label": "method", "title": "method [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build_add", "to": "re", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build", "to": "build_add", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build_make_icon", "to": "build_render_bag_png", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build_make_icon", "to": "build_save_ico", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build_make_icon", "to": "build_make_tile_icon", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build", "to": "build_make_icon", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build_rationale_77", "to": "build_make_icon", "label": "rationale_for", "title": "rationale_for [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build_make_tile_icon", "to": "build_save_ico", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build", "to": "build_make_tile_icon", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build_rationale_95", "to": "build_make_tile_icon", "label": "rationale_for", "title": "rationale_for [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build", "to": "build_render_bag_png", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build_rationale_43", "to": "build_render_bag_png", "label": "rationale_for", "title": "rationale_for [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build", "to": "build_save_ico", "label": "contains", "title": "contains [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build_rationale_69", "to": "build_save_ico", "label": "rationale_for", "title": "rationale_for [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "launcher_program_main", "to": "launcher_program_findedge", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "launcher_program_main", "to": "stathread", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build", "to": "subprocess", "label": "imports", "title": "imports [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build", "to": "re", "label": "imports", "title": "imports [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build", "to": "base64", "label": "imports", "title": "imports [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build", "to": "pathlib", "label": "imports_from", "title": "imports_from [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "build_rationale_1", "to": "build", "label": "rationale_for", "title": "rationale_for [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "launcher", "to": "system", "label": "imports", "title": "imports [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "launcher", "to": "system_diagnostics", "label": "imports", "title": "imports [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "launcher", "to": "system_io", "label": "imports", "title": "imports [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "launcher", "to": "system_reflection", "label": "imports", "title": "imports [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "launcher", "to": "system_windows_forms", "label": "imports", "title": "imports [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src", "to": "claude_prompt_f_r_scrabble_zing", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_animatescore", "to": "zing_src_burst", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_submit", "to": "zing_src_animatescore", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_buildbonus", "to": "zing_src_evaluate", "label": "shares_data_with", "title": "shares_data_with [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_submit", "to": "zing_src_burst", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_evaluate", "to": "zing_src_extent", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_evaluate", "to": "zing_src_checkword", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_render", "to": "zing_src_evaluate", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_submit", "to": "zing_src_evaluate", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_evaluate", "to": "claude_prompt_f_r_scrabble_zing_game_mechanics", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_music", "to": "zing_src_sfx", "label": "shares_data_with", "title": "shares_data_with [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_nextround", "to": "zing_src_render", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_render", "to": "claude_prompt_f_r_scrabble_zing_visual_style", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_endgame", "to": "zing_src_sfx", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_submit", "to": "zing_src_sfx", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_sfx", "to": "claude_prompt_f_r_scrabble_zing_web_audio_sounds", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_keyboard", "to": "zing_src_submit", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_submit", "to": "zing_src_nextround", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_submit", "to": "claude_prompt_f_r_scrabble_zing_zing_bonus", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "claude_prompt_f_r_scrabble_zing_game_mechanics", "to": "claude_prompt_f_r_scrabble_zing_zing_bonus", "label": "conceptually_related_to", "title": "conceptually_related_to [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_prompt_f_r_scrabble_zing", "to": "claude_prompt_f_r_scrabble_zing_game_mechanics", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_prompt_f_r_scrabble_zing", "to": "claude_prompt_f_r_scrabble_zing_visual_style", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_prompt_f_r_scrabble_zing", "to": "claude_prompt_f_r_scrabble_zing_web_audio_sounds", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_prompt_f_r_scrabble_zing", "to": "claude_prompt_f_r_scrabble_zing_dictionary_tolerance", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "claude_prompt_f_r_scrabble_zing", "to": "claude_prompt_f_r_scrabble_zing_letter_distribution", "label": "references", "title": "references [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_showstart", "to": "zing_src_applysettings", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_applysettings", "to": "zing_src_config", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_endgame", "to": "zing_src_showstart", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_nextround", "to": "zing_src_endgame", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_playertimeout", "to": "zing_src_endgame", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_loop", "to": "zing_src_playertimeout", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_loop", "to": "zing_src_renderplayers", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_newgame", "to": "zing_src_nextround", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_nextround", "to": "zing_src_newrack", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_nextround", "to": "zing_src_renderplayers", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_passturn", "to": "zing_src_nextround", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_playertimeout", "to": "zing_src_nextround", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_multiplayer", "to": "zing_src_nextround", "label": "rationale_for", "title": "rationale_for [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_checkword", "to": "zing_src_isplausible", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_checkword", "to": "zing_src_dict", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_upload_handler", "to": "zing_src_dict", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_dict", "to": "claude_prompt_f_r_scrabble_zing_dictionary_tolerance", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_drawone", "to": "zing_src_isplausible", "label": "semantically_similar_to", "title": "semantically_similar_to [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_isplausible", "to": "claude_prompt_f_r_scrabble_zing_dictionary_tolerance", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_upload_handler", "to": "zing_src_normword", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_upload_handler", "to": "claude_prompt_f_r_scrabble_zing_dictionary_tolerance", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_newrack", "to": "zing_src_drawone", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_drawone", "to": "claude_prompt_f_r_scrabble_zing_letter_distribution", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_newgame", "to": "zing_src_makebag", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_makebag", "to": "zing_src_values_distribution", "label": "shares_data_with", "title": "shares_data_with [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_values_distribution", "to": "claude_prompt_f_r_scrabble_zing_letter_distribution", "label": "implements", "title": "implements [INFERRED]", "dashes": true, "width": 1, "color": {"opacity": 0.35}, "confidence": "INFERRED"}, {"from": "zing_src_drag_input", "to": "zing_src_toRack", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_keyboard", "to": "zing_src_togglepause", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_keyboard", "to": "zing_src_toRack", "label": "calls", "title": "calls [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}, {"from": "zing_src_stage_layout", "to": "zing_src_fit", "label": "rationale_for", "title": "rationale_for [EXTRACTED]", "dashes": false, "width": 2, "color": {"opacity": 0.7}, "confidence": "EXTRACTED"}];
+const LEGEND = [{"cid": 0, "color": "#4E79A7", "label": "Build-Skript und Programmsymbol", "count": 15}, {"cid": 1, "color": "#F28E2B", "label": "Spielregeln und Wertung", "count": 15}, {"cid": 2, "color": "#E15759", "label": "EXE-Starter (C#)", "count": 10}, {"cid": 3, "color": "#76B7B2", "label": "Spielablauf und Mehrspieler", "count": 10}, {"cid": 4, "color": "#59A14F", "label": "W\u00f6rterbuch und Wortpr\u00fcfung", "count": 6}, {"cid": 5, "color": "#EDC948", "label": "Beutel und Buchstaben", "count": 6}, {"cid": 6, "color": "#B07AA1", "label": "Eingabe und Steuerung", "count": 4}, {"cid": 7, "color": "#FF9DA7", "label": "B\u00fchne und Skalierung", "count": 2}];
+
+// HTML-escape helper — prevents XSS when injecting graph data into innerHTML
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Build vis datasets
+const nodesDS = new vis.DataSet(RAW_NODES.map((n, i) => ({
+  id: n.id, label: n.label, color: n.color, size: n.size,
+  font: n.font, title: n.title,
+  // Fermat/golden-angle spiral seed positions (#3699): spreading nodes out
+  // before physics runs keeps avoidOverlap from computing near-zero-distance
+  // repulsion that blows the BarnesHut recursion into a stack overflow on large
+  // graphs. `i` is the map index — physics still settles small graphs identically.
+  x: 30 * Math.sqrt(i) * Math.cos(i * 2.4),
+  y: 30 * Math.sqrt(i) * Math.sin(i * 2.4),
+  community: n.community, community_name: n.community_name,
+  source_file: n.source_file, file_type: n.file_type, degree: n.degree,
+  member_count: n.member_count,
+})));
+
+const edgesDS = new vis.DataSet(RAW_EDGES.map((e, i) => ({
+  id: i, from: e.from, to: e.to,
+  label: '',
+  title: e.title,
+  dashes: e.dashes,
+  width: e.width,
+  color: e.color,
+  arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+})));
+
+const container = document.getElementById('graph');
+const network = new vis.Network(container, { nodes: nodesDS, edges: edgesDS }, {
+  physics: {
+    enabled: true,
+    solver: 'forceAtlas2Based',
+    forceAtlas2Based: {
+      gravitationalConstant: -60,
+      centralGravity: 0.005,
+      springLength: 120,
+      springConstant: 0.08,
+      damping: 0.4,
+      avoidOverlap: 0.8,
+    },
+    stabilization: { iterations: 200, fit: true },
+  },
+  interaction: {
+    hover: true,
+    tooltipDelay: 100,
+    hideEdgesOnDrag: true,
+    navigationButtons: false,
+    keyboard: false,
+  },
+  nodes: { shape: 'dot', borderWidth: 1.5 },
+  edges: { smooth: { type: 'continuous', roundness: 0.2 }, selectionWidth: 3 },
+});
+
+// Theme toggle (#3894): Light / Dark / System, persisted in localStorage.
+const THEME_KEY = 'graphify-theme';
+const themeMQ = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+let themeLabelColor = '#ffffff';  // matches the per-node font color set in Python
+function themePref() {
+  let p = null;
+  try { p = localStorage.getItem(THEME_KEY); } catch (e) {}
+  return (p === 'light' || p === 'dark' || p === 'system') ? p : null;
+}
+function applyTheme(pref) {
+  const t = pref === 'light' ? 'light' : (pref === 'system' && themeMQ && themeMQ.matches) ? 'light' : 'dark';
+  const root = document.documentElement;
+  if (!root) return;
+  root.setAttribute('data-theme', t);
+  document.querySelectorAll('[data-theme-choice]').forEach(b => {
+    b.setAttribute('aria-pressed', String(b.dataset.themeChoice === (pref || 'dark')));
+  });
+  const labelColor = getComputedStyle(root).getPropertyValue('--node-label').trim();
+  if (labelColor && labelColor !== themeLabelColor) {
+    themeLabelColor = labelColor;
+    nodesDS.update(nodesDS.get().map(n => ({ id: n.id, font: Object.assign({}, n.font, { color: labelColor }) })));
+  }
+}
+document.querySelectorAll('[data-theme-choice]').forEach(b => {
+  b.addEventListener('click', () => {
+    const pref = b.dataset.themeChoice;
+    try { localStorage.setItem(THEME_KEY, pref); } catch (e) {}
+    applyTheme(pref);
+  });
+});
+if (themeMQ) {
+  const onSchemeChange = () => { if (themePref() === 'system') applyTheme('system'); };
+  if (themeMQ.addEventListener) themeMQ.addEventListener('change', onSchemeChange);
+  else if (themeMQ.addListener) themeMQ.addListener(onSchemeChange);
+}
+applyTheme(themePref());
+
+network.once('stabilizationIterationsDone', () => {
+  network.setOptions({ physics: { enabled: false } });
+});
+
+function showInfo(nodeId) {
+  const n = nodesDS.get(nodeId);
+  if (!n) return;
+  const neighborIds = network.getConnectedNodes(nodeId);
+  const neighborItems = neighborIds.map(nid => {
+    const nb = nodesDS.get(nid);
+    const color = nb ? nb.color.background : '#555';
+    return `<span class="neighbor-link" style="border-left-color:${esc(color)}" data-nid="${esc(nid)}">${esc(nb ? nb.label : nid)}</span>`;
+  }).join('');
+  const isMetaNode = !n.file_type && !n.source_file;
+  let html = `<div class="field"><b>${esc(n.label)}</b></div>`;
+  if (!isMetaNode) {
+    html += `<div class="field">Type: ${esc(n.file_type || 'unknown')}</div>`;
+  }
+  html += `<div class="field">Community: ${esc(n.community_name || '')}</div>`;
+  if (!isMetaNode) {
+    html += `<div class="field">Source: ${esc(n.source_file || '-')}</div>`;
+  } else if (n.member_count !== undefined && n.member_count !== null) {
+    html += `<div class="field">Members: ${esc(n.member_count)}</div>`;
+  }
+  html += `<div class="field">Degree: ${n.degree}</div>`;
+  if (neighborIds.length) {
+    html += `<div class="field" style="margin-top:8px;color:var(--text-2);font-size:11px">Neighbors (${neighborIds.length})</div><div id="neighbors-list">${neighborItems}</div>`;
+  }
+  document.getElementById('info-content').innerHTML = html;
+}
+
+function focusNode(nodeId) {
+  network.focus(nodeId, { scale: 1.4, animation: true });
+  network.selectNodes([nodeId]);
+  showInfo(nodeId);
+}
+
+// Neighbor links use a data attribute + one delegated listener rather than an
+// inline onclick. A node id/label sourced from a document or a scraped URL
+// (graphify add) can contain a double-quote; dropping the stringified id
+// unescaped into a quoted onclick both broke every link and allowed a hostile
+// source to inject an event handler into the local report (stored XSS, #1838).
+// esc() on data-nid keeps the value inside the attribute; the listener reads it
+// back verbatim. Bound to document so it survives the innerHTML rebuild that
+// recreates #neighbors-list on each showInfo().
+document.addEventListener('click', e => {
+  const el = e.target.closest('.neighbor-link');
+  if (el && el.dataset.nid !== undefined) focusNode(el.dataset.nid);
+});
+
+// Sidebar tooltips reuse vis-network's .vis-tooltip style and 100ms tooltipDelay.
+// Names get one only when CSS ellipsis truncates them (the full text is still in
+// the DOM); counts always get one, to say what the number is. Text is set with
+// textContent only (labels are untrusted). Delegated on document so rows rebuilt
+// later (search results, showInfo()) are covered.
+const sidebarTip = document.createElement('div');
+sidebarTip.className = 'vis-tooltip';
+sidebarTip.style.cssText = 'white-space: normal; max-width: 360px; overflow-wrap: break-word;';
+document.body.appendChild(sidebarTip);
+let sidebarTipTimer = null;
+let sidebarTipEl = null;    // element whose text the tooltip shows
+let sidebarTipZone = null;  // element the pointer must leave to hide it
+function hideSidebarTip() {
+  clearTimeout(sidebarTipTimer);
+  sidebarTip.style.visibility = 'hidden';
+  sidebarTip.textContent = '';
+  sidebarTipEl = sidebarTipZone = null;
+}
+document.addEventListener('mouseover', e => {
+  const zone = e.target.closest && e.target.closest('.legend-count, .legend-item, .search-item, .neighbor-link');
+  // Anywhere on a legend row except its count (dot, checkbox, gaps, padding)
+  // stands for the row's name, so moving within the row never re-triggers it.
+  const el = zone && zone.classList.contains('legend-item') ? zone.querySelector('.legend-label') : zone;
+  if (!el || el === sidebarTipEl) return;
+  hideSidebarTip();
+  const isCount = el.classList.contains('legend-count');
+  if (!isCount && el.scrollWidth <= el.clientWidth) return;
+  const text = isCount ? `${el.textContent} ${el.textContent === '1' ? 'node' : 'nodes'}` : el.textContent;
+  sidebarTipEl = el;
+  sidebarTipZone = zone;
+  const x = e.clientX, y = e.clientY;
+  sidebarTipTimer = setTimeout(() => {
+    sidebarTip.textContent = text;
+    sidebarTip.style.left = sidebarTip.style.top = '0px';  // measure at full max-width
+    sidebarTip.style.visibility = 'visible';
+    const w = sidebarTip.offsetWidth, h = sidebarTip.offsetHeight;
+    sidebarTip.style.left = Math.max(4, Math.min(x + 12, window.innerWidth - w - 4)) + 'px';
+    sidebarTip.style.top = (y + 16 + h > window.innerHeight ? Math.max(4, y - h - 8) : y + 16) + 'px';
+  }, 100);
+});
+document.addEventListener('mouseout', e => {
+  if (sidebarTipZone && !sidebarTipZone.contains(e.relatedTarget)) hideSidebarTip();
+});
+// A click rebuilds or hides the row (showInfo(), search pick) without a mouseout.
+document.addEventListener('mousedown', hideSidebarTip);
+
+// Track hovered node — hover detection is more reliable than click params
+let hoveredNodeId = null;
+network.on('hoverNode', params => {
+  hoveredNodeId = params.node;
+  container.style.cursor = 'pointer';
+});
+network.on('blurNode', () => {
+  hoveredNodeId = null;
+  container.style.cursor = 'default';
+});
+container.addEventListener('click', () => {
+  if (hoveredNodeId !== null) {
+    showInfo(hoveredNodeId);
+    network.selectNodes([hoveredNodeId]);
+  }
+});
+network.on('click', params => {
+  if (params.nodes.length > 0) {
+    showInfo(params.nodes[0]);
+  } else if (hoveredNodeId === null) {
+    document.getElementById('info-content').innerHTML = '<span class="empty">Click a node to inspect it</span>';
+  }
+});
+
+const searchInput = document.getElementById('search');
+const searchResults = document.getElementById('search-results');
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.toLowerCase().trim();
+  searchResults.innerHTML = '';
+  if (!q) { searchResults.style.display = 'none'; return; }
+  const matches = RAW_NODES.filter(n => n.label.toLowerCase().includes(q)).slice(0, 20);
+  if (!matches.length) { searchResults.style.display = 'none'; return; }
+  searchResults.style.display = 'block';
+  matches.forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'search-item';
+    el.textContent = n.label;
+    el.style.borderLeft = `3px solid ${n.color.background}`;
+    el.style.paddingLeft = '8px';
+    el.onclick = () => {
+      network.focus(n.id, { scale: 1.5, animation: true });
+      network.selectNodes([n.id]);
+      showInfo(n.id);
+      searchResults.style.display = 'none';
+      searchInput.value = '';
+    };
+    searchResults.appendChild(el);
+  });
+});
+document.addEventListener('click', e => {
+  if (!searchResults.contains(e.target) && e.target !== searchInput)
+    searchResults.style.display = 'none';
+});
+
+const hiddenCommunities = new Set();
+
+const selectAllCb = document.getElementById('select-all-cb');
+
+function updateSelectAllState() {
+  const total = LEGEND.length;
+  const hidden = hiddenCommunities.size;
+  selectAllCb.checked = hidden === 0;
+  selectAllCb.indeterminate = hidden > 0 && hidden < total;
+}
+
+function toggleAllCommunities(hide) {
+  document.querySelectorAll('.legend-item').forEach(item => {
+    hide ? item.classList.add('dimmed') : item.classList.remove('dimmed');
+  });
+  document.querySelectorAll('.legend-cb').forEach(cb => {
+    cb.checked = !hide;
+  });
+  LEGEND.forEach(c => {
+    if (hide) hiddenCommunities.add(c.cid); else hiddenCommunities.delete(c.cid);
+  });
+  const updates = RAW_NODES.map(n => ({ id: n.id, hidden: hide }));
+  nodesDS.update(updates);
+  updateSelectAllState();
+}
+
+const legendEl = document.getElementById('legend');
+LEGEND.forEach(c => {
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.className = 'legend-cb';
+  cb.checked = true;
+  cb.addEventListener('change', (e) => {
+    e.stopPropagation();
+    if (cb.checked) {
+      hiddenCommunities.delete(c.cid);
+      item.classList.remove('dimmed');
+    } else {
+      hiddenCommunities.add(c.cid);
+      item.classList.add('dimmed');
+    }
+    const updates = RAW_NODES
+      .filter(n => n.community === c.cid)
+      .map(n => ({ id: n.id, hidden: !cb.checked }));
+    nodesDS.update(updates);
+    updateSelectAllState();
+  });
+  item.innerHTML = `<div class="legend-dot" style="background:${c.color}"></div>
+    <span class="legend-label">${c.label}</span>
+    <span class="legend-count">${c.count}</span>`;
+  item.prepend(cb);
+  item.onclick = (e) => {
+    if (e.target === cb) return;
+    cb.checked = !cb.checked;
+    cb.dispatchEvent(new Event('change'));
+  };
+  legendEl.appendChild(item);
+});
+</script>
+<script>
+// Render hyperedges as shaded regions
+const hyperedges = [{"id": "zing_dictionary_system", "label": "Dictionary checking system", "nodes": ["zing_src_dict", "zing_src_checkword", "zing_src_isplausible", "zing_src_normword", "zing_src_upload_handler"], "relation": "form", "confidence": "EXTRACTED", "confidence_score": 0.9, "source_file": "zing_src.html"}, {"id": "zing_game_lifecycle", "label": "Game and turn lifecycle", "nodes": ["zing_src_newgame", "zing_src_nextround", "zing_src_endgame", "zing_src_playertimeout", "zing_src_passturn", "zing_src_showstart"], "relation": "participate_in", "confidence": "EXTRACTED", "confidence_score": 0.9, "source_file": "zing_src.html"}, {"id": "zing_move_scoring_flow", "label": "Move validation and scoring flow", "nodes": ["zing_src_submit", "zing_src_evaluate", "zing_src_checkword", "zing_src_animatescore", "zing_src_burst"], "relation": "participate_in", "confidence": "EXTRACTED", "confidence_score": 0.9, "source_file": "zing_src.html"}];
+// afterDrawing passes ctx already transformed to network coordinate space.
+// Draw node positions raw — no manual pan/zoom/DPR math needed.
+
+// Andrew's monotone chain. Returns the hull in counter-clockwise order, which
+// is what the perimeter must be traced in. Collinear and duplicate points
+// collapse to the extremes, so degenerate member sets render as a segment
+// rather than a zero-area crossed path.
+function convexHull(pts) {
+    const p = pts.slice().sort((a, b) => (a.x - b.x) || (a.y - b.y));
+    if (p.length < 3) return p;
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const build = seq => {
+        const out = [];
+        for (const q of seq) {
+            while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], q) <= 0) out.pop();
+            out.push(q);
+        }
+        out.pop();
+        return out;
+    };
+    const hull = build(p).concat(build(p.slice().reverse()));
+    return hull.length >= 3 ? hull : p;
+}
+network.on('afterDrawing', function(ctx) {
+    hyperedges.forEach(h => {
+        const positions = h.nodes
+            .map(nid => network.getPositions([nid])[nid])
+            .filter(p => p !== undefined);
+        if (positions.length < 2) return;
+        ctx.save();
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = '#6366f1';
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Centroid and expanded hull in network coordinates.
+        // The perimeter must follow hull order, not h.nodes order: tracing the
+        // raw member order self-intersects whenever the layout does not happen
+        // to place members in angular order, filling as crossed wedges.
+        const cx = positions.reduce((s, p) => s + p.x, 0) / positions.length;
+        const cy = positions.reduce((s, p) => s + p.y, 0) / positions.length;
+        const hull = convexHull(positions);
+        const expanded = hull.map(p => ({
+            x: cx + (p.x - cx) * 1.15,
+            y: cy + (p.y - cy) * 1.15
+        }));
+        ctx.moveTo(expanded[0].x, expanded[0].y);
+        expanded.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 0.4;
+        ctx.stroke();
+        // Label
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = '#4f46e5';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(h.label, cx, cy - 5);
+        ctx.restore();
+    });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "build.py": {
+    "mtime": 1793137300.3997965,
+    "seen": 1793139818.874208,
+    "ast_hash": "3210e47ab0be7f24e96e52470a3aba99",
+    "semantic_hash": "3210e47ab0be7f24e96e52470a3aba99"
+  },
+  "launcher.cs": {
+    "mtime": 1793136987.6766355,
+    "seen": 1793139818.8742137,
+    "ast_hash": "f6997f545f07f1a4042a662523042a30",
+    "semantic_hash": "f6997f545f07f1a4042a662523042a30"
+  },
+  "claude_prompt_f_r_scrabble_zing.txt": {
+    "mtime": 1793127450.5282438,
+    "seen": 1793139818.8742166,
+    "ast_hash": "072858e96ca1a734531efc88d77c80f5",
+    "semantic_hash": "072858e96ca1a734531efc88d77c80f5"
+  },
+  "zing_src.html": {
+    "mtime": 1793138157.7380579,
+    "seen": 1793139818.874218,
+    "ast_hash": "31e1c34cd32d9ba1be7948be785aa533",
+    "semantic_hash": "31e1c34cd32d9ba1be7948be785aa533"
+  }
+}

@@ -1,0 +1,68 @@
+# Kopiere den gesamten folgenden Text und sende ihn an Claude (am besten mit aktiviertem Artifacts-Feature):
+
+Du bist ein erfahrener Senior Game Developer und Web-Entwickler. Deine Aufgabe ist es, das klassische deutsche Flash-/Browser-Geschicklichkeitsspiel **"Scrabble Zing"** (bekannt von Plattformen wie King.com und Fettspielen.de aus den späten 2000er Jahren, wie man es aus den alten Fettspielen-YouTube-Videos kennt) **1:1 als moderne, komplett spielbare Single-File HTML5/JS/CSS Web-Applikation** zu rekonstruieren.
+
+Bitte analysiere die folgenden exakten Spielmechaniken von "Scrabble Zing" und setze sie detailgetreu in einer einzigen `.html`-Datei um:
+
+### 1. Visueller Stil & Layout (1:1 Retro King.com / Fettspielen Look)
+* **Farbschema & Atmosphäre:** Freundliches, leicht glänzendes Web-2.0-/Arcade-Design (warme Grün-, Holz- und Gold-/Gelbtöne für das Brett, klassische elfenbeinfarbene Scrabble-Steine mit schwarzer Schrift und kleinem Punktwert unten rechts).
+* **Kopfbereich (HUD):**
+  * **Score-Anzeige:** Aktueller Punktestand (groß und animiert beim Hochzählen).
+  * **Runden-Anzeige:** Das Spiel läuft über **3 schnelle Runden** (oder im Endlos-/Highscore-Modus wählbar, Standard: 3 Runden wie im Turniermodus von King.com).
+  * **Timer-Balken / Uhr:** Ein sichtbarer Countdown-Timer pro Runde (z. B. 90 Sekunden pro Runde), der optisch warnt, wenn die Zeit knapp wird.
+* **Zentrum (Das Spielfeld):**
+  * Ein kompaktes **11x11 oder 13x13 Scrabble-Raster** (kleiner und schneller als das Standard-15x15-Brett).
+  * **Bonusfelder:**
+    * Mitte: Startstern (zählt als Doppelter Wortwert).
+    * `2B` (Hellblau): Doppelter Buchstabenwert.
+    * `3B` (Dunkelblau): Dreifacher Buchstabenwert.
+    * `2W` (Rosa/Orange): Doppelter Wortwert.
+    * `3W` (Rot): Dreifacher Wortwert.
+* **Unterer Bereich (Das Rack & Steuerung):**
+  * **Buchstaben-Bank (Rack):** Platz für **7 Buchstabensteine**.
+  * **Buttons:**
+    * `"Wort prüfen / Legen"` (Bestätigt den aktuellen Zug).
+    * `"Mischen"` (Mischt die Steine auf der Bank neu).
+    * `"Zurücknehmen"` (Holt alle in diesem Zug gelegten, noch nicht bestätigten Steine zurück auf die Bank).
+    * `"Tauschen / Neue Steine"` (Tauscht alle Steine auf der Bank gegen neue aus dem Beutel – kostet entweder ein paar Sekunden Zeit oder hat einen kurzen Cooldown, genau wie im schnellen Arcade-Modus).
+
+### 2. Exakte Spielmechanik von "Scrabble Zing"
+* **Rundenstart mit Startwort:** Zu Beginn jeder Runde liegt bereits ein zufälliges 4- bis 5-buchstabiges deutsches Startwort horizontal oder vertikal über dem mittleren Sternfeld, sodass der Spieler sofort ohne Wartezeit anlegen kann!
+* **Steuerung (Drag & Drop + Klick-Steuerung):**
+  * Spieler können Buchstaben sowohl per **Drag & Drop** als auch per **Klick auf Stein -> Klick auf Zielfeld** (und Rechtsklick/Doppelklick zum Zurückholen) extrem flüssig platzieren.
+  * Zusätzlich: Tastatur-Support (Buchstaben tippen und mit Pfeiltasten/Maus auf dem Feld platzieren optional für Speedrunner).
+* **Gültigkeitsprüfung (Scrabble-Regeln):**
+  * Alle in einem Zug gelegten Steine müssen in einer einzigen Reihe oder Spalte liegen und lückenlos (ggf. über bereits liegende Steine) verbunden sein.
+  * Mindestens ein neu gelegter Stein muss horizontal oder vertikal an einen bereits auf dem Brett liegenden Stein angrenzen.
+  * Alle neu gebildeten Wörter (Hauptwort + alle Querwörter) werden gegen das integrierte deutsche Wörterbuch geprüft.
+* **Das "ZING!"-Feature & Punkte-System:**
+  * Wenn alle 7 Steine der Bank in einem einzigen Zug gelegt werden (oder das Brett/der Beutel geleert wird), erscheint ein großer **"ZING! BONUS (+50 Punkte)"**-Effekt mit Sound (via Web Audio API generiert!).
+  * **Schnelligkeits-/Ketten-Multiplikator:** Wenn der Spieler innerhalb weniger Sekunden nach dem letzten gültigen Wort direkt das nächste gültige Wort legt, steigt ein **Tempo-Multiplikator (x1, x2, x3)**!
+  * **Buchstabenbeutel:** Jede Runde hat einen festen Vorrat an Steinen (z. B. 35–45 Steine pro Runde). Schafft es der Spieler, alle Steine vor Ablauf der Zeit zu verlegen, endet die Runde sofort und jede verbleibende Sekunde auf der Uhr gibt einen massiven **Zeit-Bonus (z. B. +10 Punkte pro Sekunde)**.
+
+### 3. Deutsche Buchstabenverteilung & Punktwerte
+Verwende die deutschen Scrabble-Werte:
+* 1 Punkt: E, N, S, I, R, T, U, A, D
+* 2 Punkte: H, G, L, O
+* 3 Punkte: M, B, W, Z
+* 4 Punkte: C, F, K, P
+* 6 Punkte: Ä, J, Ü, V
+* 8 Punkte: Ö, X
+* 10 Punkte: Q, Y
+* 0 Punkte (Joker `*`): 2 Stück im Beutel, können beim Ablegen als beliebiger Buchstabe gewählt werden.
+* Wichtig: Achte auf einen intelligenten Vokal-Konsonanten-Ausgleich beim Nachziehen, damit man im schnellen Arcade-Modus nie nur Konsonanten auf der Hand hat!
+
+### 4. Integriertes Deutsches Wörterbuch + Toleranz-Modus
+* Baue direkt im Code ein möglichst großes Array/Set mit deutschen Wörtern (2 bis 9 Buchstaben, inkl. gebeugter Formen, Kurzwörter wie AB, AN, IM, IN, ZU, EI, ER, ES, DU, DA, JA, NE, SO, WO, ÖL, BAD, BAU, BUS, EIS, GAS, GUT, HOF, HUT, JOB, KUH, LOS, MAI, MUT, NEU, OHR, ORT, RAD, ROT, SEE, TAG, TOR, UHR, WAL, WEG, ZUG usw.) ein.
+* Da man in einer einzelnen HTML-Datei keine 200.000 Wörter speichern kann, baue zusätzlich einen **Umschalter im UI** ein:
+  1. `"Striktes Wörterbuch + Eigene Wortliste hochladen (.txt)"`: Ein Button, über den ich meine eigene `scrabble_zing_wortliste.txt` direkt ins Spiel laden kann!
+  2. `"Arcade-Fehlertoleranz (Fallback)"`: Prüft zusätzlich über deutsche Silben-/Vokal-Heuristik, falls ein seltenes gebeugtes deutsches Wort nicht in der internen Basisliste steht, damit der Spielfluss wie im Original niemals frustrierend blockiert.
+
+### 5. Soundeffekte (Web Audio API)
+* Generiere über die native `AudioContext` (Web Audio API) passende Retro-Flash-Sounds (ohne externe MP3-Dateien):
+  * Klack-Geräusch beim Aufnehmen und Ablegen eines Holzsteins.
+  * Positiver "Chime/Ding"-Sound bei gültigem Wort.
+  * Dumpfer "Buzzer" bei ungültigem Wort.
+  * Fanfare bei "ZING! Bonus" und Rundenende.
+
+Bitte gib mir den vollständigen, direkt im Browser ausführbaren Code in einer einzigen `.html`-Datei aus, ohne Platzhalter oder ausgelassene Funktionen.
