@@ -153,3 +153,12 @@ if csc.exists() and icon is not None:
         print(r.stdout, r.stderr)
         raise SystemExit("EXE-Bau fehlgeschlagen")
     print(f"Zing.exe gebaut, {(here / 'Zing.exe').stat().st_size // 1024} KB")
+
+# Fertige Dateien zum Herunterladen im Hauptordner (download/)
+import shutil
+dl = here.parent / "download"
+dl.mkdir(exist_ok=True)
+shutil.copy2(here / "scrabble_zing.html", dl / "scrabble_zing.html")
+if (here / "Zing.exe").exists():
+    shutil.copy2(here / "Zing.exe", dl / "Zing.exe")
+print("download/ aktualisiert")

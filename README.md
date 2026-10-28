@@ -9,6 +9,7 @@ zing/                      Das Spiel
   zing.ico                 Programmsymbol
   *_wortliste.txt, scrabble_2-8_buchstaben.txt   Wörterbuch (wird eingebettet)
   material/                Referenz: Video-Links, Prompt, große Wortliste
+download/                  Fertig zum Herunterladen: Zing.exe und scrabble_zing.html
 ios-app/                   iPhone-App (Capacitor), von build.py befüllt
 .github/workflows/ios-ipa.yml   Baut die unsignierte IPA auf GitHub
 ```
