@@ -1,4 +1,5 @@
-# Zing – Scrabble Zing (1:1 Nachbau)
+
+# Zing – Scrabble Zing (fast 1:1 Nachbau)
 
 ```
 zing/                      Das Spiel
