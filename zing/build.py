@@ -130,14 +130,14 @@ out = src.replace("__WORDS__", " ".join(sorted(words)), 1).replace("</title>", "
 print(f"{len(words)} Wörter eingebettet, {len(out.encode('utf-8')) // 1024} KB")
 
 # iOS-App (Capacitor): Spiel und App-Symbol ins App-Projekt legen; gebaut wird per GitHub Actions
-ios = here / "ios-app"
+ios = here.parent / "ios-app"
 if ios.exists():
     (ios / "www").mkdir(exist_ok=True)
     (ios / "www" / "index.html").write_text(out, encoding="utf-8")
     if icon is not None:
         (ios / "resources").mkdir(exist_ok=True)
         (ios / "resources" / "icon-1024.png").write_bytes(touch_icon_png(icon, 1024))
-    print("iOS-App-Projekt aktualisiert (ios-app/www, ios-app/resources)")
+    print("iOS-App-Projekt aktualisiert (../ios-app/www, ../ios-app/resources)")
 
 
 # Portable EXE (nur Windows, nutzt den mitgelieferten C#-Compiler von .NET Framework 4)

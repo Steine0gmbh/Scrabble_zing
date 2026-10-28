@@ -1,9 +1,0 @@
-{
-  "appId": "de.zing.wortspiel",
-  "appName": "Zing",
-  "webDir": "www",
-  "ios": {
-    "contentInset": "always",
-    "backgroundColor": "#140a04"
-  }
-}
