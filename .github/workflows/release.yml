@@ -1,8 +1,10 @@
 # Legt ein GitHub-Release an und hängt Zing.exe und scrabble_zing.html direkt an.
-# Starten: Actions -> "Release veröffentlichen" -> Run workflow (Versionsnummer eintragen).
+# Startet automatisch bei einem neuen Tag (z. B. v1.2) oder von Hand: Actions -> "Release veröffentlichen" -> Run workflow (Versionsnummer eintragen).
 name: Release veröffentlichen
 
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       version:
@@ -23,7 +25,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ inputs.version }}" \
+          gh release create "${{ inputs.version || github.ref_name }}" \
             download/Zing.exe download/scrabble_zing.html \
-            --title "Zing ${{ inputs.version }}" \
+            --title "Zing ${{ inputs.version || github.ref_name }}" \
             --notes "Zing.exe (Windows) und scrabble_zing.html (Browser, eine Datei)."
