@@ -111,9 +111,6 @@ input,select,textarea{-webkit-user-select:text;user-select:text}
 #legen{left:1158px;top:972px;width:176px;height:70px;border-radius:35px;border:3px solid #001a17;cursor:pointer;
   background:linear-gradient(180deg,#1d6b57,var(--legen1) 45%,var(--legen2));box-shadow:inset 0 0 0 2px var(--legenEdge),inset 0 8px 8px rgba(255,255,255,.15),0 4px 8px rgba(0,0,0,.45);
   color:#fff;font:bold 30px/1 Georgia,serif;letter-spacing:1px;text-shadow:0 2px 0 #00140f}
-#endRound{left:930px;top:985px;width:200px;height:46px;border-radius:23px;border:3px solid #3a2a00;background:linear-gradient(#ffe08a,#e6b43a 55%,#b9861b);color:#2a1d00;font:bold 17px Georgia,serif;cursor:pointer}
-#endRound:active{transform:translateY(2px)}
-#endRound:disabled{filter:grayscale(.6) brightness(.8);cursor:default}
 #legen:active{transform:translateY(2px)}
 #legen:disabled{filter:grayscale(.6) brightness(.8);cursor:default}
 #msg{left:450px;top:897px;width:830px;height:28px;text-align:center;font:bold 19px/28px Georgia,serif;color:#ffe08a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:5}
@@ -299,7 +296,6 @@ body.portrait #endPanel{top:420px}
  <button class="abs capbtn" id="capShuffle" title="Steine mischen (Tab)"><svg viewBox="0 0 24 24"><path d="M3 7h4c3 0 5 10 9 10h5M3 17h4c1.6 0 2.8-1.6 3.9-3.6M14.4 9.4C15.3 8 16.4 7 18 7h3M18 4l3 3-3 3M18 14l3 3-3 3"/></svg></button>
  <button class="abs capbtn" id="capRecall" title="Alle Steine zurück (Esc)"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
  <button class="abs" id="legen" title="Wort legen (Enter)">LEGEN</button>
- <button class="abs" id="endRound" title="Runde beenden (übrige Buchstaben verfallen)" style="display:none">RUNDE BEENDEN</button>
 
  <div class="abs board-panel show" id="startPanel">
   <h2>SPIELANLEITUNG</h2>
@@ -349,7 +345,7 @@ body.portrait #endPanel{top:420px}
    ========================================================= */
 const CONFIG = {
   N: 15,             // 15x15, Standard-Bonusfelder
-  MOVES: 0,          // Züge (Anlegen) pro Runde; 1 = Original, 0 = beliebig viele
+  MOVES: 1,          // Züge (Anlegen) pro Runde; 1 = Original; pro LEGEN dürfen mehrere Wörter gelegt werden
   ROUNDS: 5,         // eine Runde = ein Zug
   GAME_TIME: 240,    // 4:00 für das ganze Spiel
   RACK: 7,
@@ -682,7 +678,7 @@ async function submit(){
     // Runde geht weiter: leere Plätze auffüllen, übrige Buchstaben behalten
     for(let i=0;i<CONFIG.RACK;i++) if(!rack[i]) rack[i]=drawOne();
     if(rackTiles().length){
-      busy=false; running=true; lastTick=-1; setMsg('Weiter legen oder „Runde beenden“.'); render(); return;
+      busy=false; running=true; lastTick=-1; setMsg('Noch '+(CONFIG.MOVES-movesDone)+' Zug'+(CONFIG.MOVES-movesDone===1?'':'e')+' in dieser Runde.'); render(); return;
     }
   }
   busy=false;
@@ -742,7 +738,6 @@ function render(){
   }
   for(let i=0;i<CONFIG.RACK;i++) slotEls[i].innerHTML=rack[i]?tileHTML(rack[i]):'';
   $('legen').disabled=!running;
-  $('endRound').style.display=(CONFIG.MOVES!==1&&!gameOver)?'block':'none'; $('endRound').disabled=!running||movesDone<1;
 }
 let scale=1;
 function fit(){
@@ -899,7 +894,6 @@ $('btnResume').onclick=togglePause;
 $('btnQuit').onclick=()=>{ endGame(false); };
 $('btnPass').onclick=passTurn;
 $('legen').onclick=submit;
-$('endRound').onclick=()=>{ if(running&&!busy&&movesDone>0) passTurn(); };
 $('capShuffle').onclick=()=>{ if(running) shuffleRack(); };
 $('capRecall').onclick=()=>{ if(running) recallAll(); };
 $('legendBtn').onclick=()=>{ $('legendOv').classList.add('show'); updPaused(); };
@@ -918,7 +912,7 @@ $('fileIn').onchange=e=>{
 };
 function updDictInfo(){ $('dictInfo').textContent=DICT.size.toLocaleString('de-DE')+' Wörter'; }
 /* ---------- Einstellungen: Runden und Zeit ---------- */
-const MOVE_OPTS=[1,2,3,4,5,0];   // 0 = beliebig viele
+const MOVE_OPTS=[1,2,3,4,5];
 let movesDone=0;
 const ROUND_OPTS=[1,2,3,4,5,6,7,8,10,12,15,20,0];   // 0 = endlos
 const fmtTime=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
@@ -952,7 +946,7 @@ function applySettings(){
   $('stIntro').innerHTML = n===1
     ? 'Du hast <b>'+timeText(CONFIG.GAME_TIME)+'</b> für <b>'+roundsText()+'</b>.'
     : '<b>'+n+' Spieler</b> legen abwechselnd auf dasselbe Brett, <b>'+(CONFIG.ROUNDS?CONFIG.ROUNDS+' Runde'+(CONFIG.ROUNDS===1?'':'n')+' pro Spieler':'beliebig viele Runden')+'</b>. Jeder hat eigene Punkte und eine eigene Uhr, die nur läuft, wenn er am Zug ist.';
-  $('legendRules').innerHTML=(CONFIG.MOVES===1?'':'In jeder Runde darfst du '+(CONFIG.MOVES?'bis zu '+CONFIG.MOVES+' Mal':'beliebig oft')+' anlegen; unbenutzte Buchstaben bleiben, leere Plätze werden aufgefüllt. „Runde beenden“ gibt die übrigen Buchstaben ab.<br>')+'Bonusfelder zählen nur für neu gelegte Buchstaben.<br>Alle 7 Buchstaben in einem Zug: +'+CONFIG.ALL_BONUS+' Punkte.<br>'+
+  $('legendRules').innerHTML=(CONFIG.MOVES===1?'':'In jeder Runde darfst du bis zu '+CONFIG.MOVES+' Mal anlegen; unbenutzte Buchstaben bleiben, leere Plätze werden aufgefüllt.<br>')+'Bonusfelder zählen nur für neu gelegte Buchstaben.<br>Alle 7 Buchstaben in einem Zug: +'+CONFIG.ALL_BONUS+' Punkte.<br>'+
     (CONFIG.ROUNDS?'Restzeit nach der letzten Runde: +'+CONFIG.TIME_BONUS+' Punkte je Sekunde.':'Endlos-Modus: Das Spiel läuft, bis die Zeit um oder der Beutel leer ist.')+
     (n>1?'<br>Läuft die Uhr eines Spielers ab, scheidet er aus. Kein Wort? Pause → „Zug passen“.':'');
   if(gameOver){ timeLeft=CONFIG.GAME_TIME||Infinity; players=[]; $('roundCur').textContent=1; $('roundMax').textContent=CONFIG.ROUNDS||'∞'; $('pbar').classList.remove('show'); }
@@ -972,7 +966,7 @@ function initSettings(){
   if(!ROUND_OPTS.includes(r)) r=5; if(!(np>=1&&np<=4)) np=1;
   $('selRounds').innerHTML=ROUND_OPTS.map(n=>'<option value="'+n+'"'+(n===r?' selected':'')+'>'+(n?n+(n===5?' (Original)':''):'∞ (endlos)')+'</option>').join('');
   if(!MOVE_OPTS.includes(mv)) mv=CONFIG.MOVES;
-  $('selMoves').innerHTML=MOVE_OPTS.map(n=>'<option value="'+n+'"'+(n===mv?' selected':'')+'>'+(n?n+(n===1?' (Original)':''):'beliebig')+'</option>').join('');
+  $('selMoves').innerHTML=MOVE_OPTS.map(n=>'<option value="'+n+'"'+(n===mv?' selected':'')+'>'+(n+(n===1?' (Original)':''))+'</option>').join('');
   $('selMoves').onchange=applySettings;
   $('selPlayers').value=np;
   $('selRounds').onchange=applySettings;
