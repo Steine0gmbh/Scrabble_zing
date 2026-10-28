@@ -11,7 +11,8 @@ zing/                      Das Spiel
   material/                Referenz: Video-Links, Prompt, große Wortliste
 download/                  Fertig zum Herunterladen: Zing.exe und scrabble_zing.html
 ios-app/                   iPhone-App (Capacitor), von build.py befüllt
-.github/workflows/ios-ipa.yml   Baut die unsignierte IPA auf GitHub
+.github/workflows/ios-ipa.yml   Baut die unsignierte IPA auf GitHub Aber die IPA geht noch Nicht Gut
+ Mann muss bei den Steinen weiter oben gedrückt halten 
 ```
 
 Nach Änderungen an `zing/zing_src.html`: `cd zing && python build.py` und alles hochladen.
