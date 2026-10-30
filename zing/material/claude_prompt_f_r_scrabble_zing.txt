@@ -1,5 +1,3 @@
-# Kopiere den gesamten folgenden Text und sende ihn an Claude (am besten mit aktiviertem Artifacts-Feature):
-
 Du bist ein erfahrener Senior Game Developer und Web-Entwickler. Deine Aufgabe ist es, das klassische deutsche Flash-/Browser-Geschicklichkeitsspiel **"Scrabble Zing"** (bekannt von Plattformen wie King.com und Fettspielen.de aus den späten 2000er Jahren, wie man es aus den alten Fettspielen-YouTube-Videos kennt) **1:1 als moderne, komplett spielbare Single-File HTML5/JS/CSS Web-Applikation** zu rekonstruieren.
 
 Bitte analysiere die folgenden exakten Spielmechaniken von "Scrabble Zing" und setze sie detailgetreu in einer einzigen `.html`-Datei um:
